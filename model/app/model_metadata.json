@@ -1,0 +1,42 @@
+{
+  "model_version": "1.0.0",
+  "trained_at": "2026-05-21T12:17:49.681933+00:00",
+  "feature_names": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "metrics": {
+    "cv_auc_mean": 0.8909,
+    "cv_auc_std": 0.0622,
+    "test_auc": 0.952,
+    "test_accuracy": 0.8167
+  },
+  "feature_importances": {
+    "age": 0.0712,
+    "sex": 0.0243,
+    "cp": 0.1749,
+    "trestbps": 0.0461,
+    "chol": 0.0432,
+    "fbs": 0.0021,
+    "restecg": 0.0186,
+    "thalach": 0.0994,
+    "exang": 0.061,
+    "oldpeak": 0.0963,
+    "slope": 0.0539,
+    "ca": 0.1178,
+    "thal": 0.1914
+  },
+  "n_train": 237,
+  "n_test": 60
+}
