@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: heart-disease-model
+  # Must be in the same namespace as Prometheus
+  # kube-prometheus-stack installs Prometheus in 'monitoring'
+  namespace: monitoring
+  labels:
+    # Must match the Prometheus CR's serviceMonitorSelector label
+    # Verify: kubectl get prometheus -n monitoring -o yaml | grep serviceMonitorSelector -A5
+    release: prometheus-stack
+spec:
+  # Which namespaces to look for matching Services in
+  namespaceSelector:
+    matchNames:
+      - model-serving
+
+  # Match Services by label
+  selector:
+    matchLabels:
+      app: heart-disease-model
+
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

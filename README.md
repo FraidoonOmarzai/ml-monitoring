@@ -158,5 +158,88 @@ docker compose up --build     # starts everything
 ```
 
 - Then open localhost:8080/docs to test the API, localhost:9090/targets to confirm Prometheus is scraping, and localhost:3000 for Grafana (admin / admin).
+
+## ![alt text](dockercompose.png)
+
 ---
+
+## 3 Kubernetes
+
+```bash
+Deploy to minikube — Deployment, Service, HPA, liveness/readiness/startup probes
+minikube  | kubectl  | Deployment  | Service  | HPA  | probes  | namespaces
+```
+
+### Added files
+
+```bash
+heart-disease-mlops/
+└── k8s/
+    ├── namespace.yaml
+    ├── model/
+    │   ├── deployment.yaml
+    │   ├── service.yaml
+    │   ├── hpa.yaml
+    │   └── service_monitor.yaml
+    └── scripts/
+        ├── setup.sh        ← one-shot cluster bootstrap
+        └── smoke_test.sh   ← post-deploy validation
+```
+
+### Hot To Run
+
+```bash
+# Make scripts executable
+chmod +x k8s/scripts/setup.sh
+chmod +x k8s/scripts/smoke_test.sh
+
+# ── One-shot bootstrap (does everything) ──────────────────────────────────────
+./k8s/scripts/setup.sh  # run in git bash
+
+# ── Or step by step ───────────────────────────────────────────────────────────
+
+# 1. Start minikube (4GB RAM, 4 CPU, 2 nodes)
+minikube start --driver=docker --memory=4096 --cpus=4 --nodes=2
+minikube addons enable metrics-server
+
+# 2. Train locally, build image, load into minikube
+cd model && python train.py && cd ..
+docker build -t heart-disease-model:1.0.0 -f model/Dockerfile model/
+minikube image load heart-disease-model:1.0.0
+
+# 3. Apply manifests
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/model/deployment.yaml
+kubectl apply -f k8s/model/service.yaml
+kubectl apply -f k8s/model/hpa.yaml
+
+# 4. Wait for pods to be ready
+kubectl rollout status deployment/heart-disease-model -n model-serving --timeout=120s
+
+# 5. Verify
+kubectl get pods -n model-serving
+kubectl get svc   -n model-serving
+kubectl get hpa   -n model-serving
+
+# 6. Port-forward and smoke test
+kubectl port-forward svc/heart-disease-model 8080:80 -n model-serving &
+sleep 2
+./k8s/scripts/smoke_test.sh http://localhost:8080  # run in git bash
+
+# 7. Useful debug commands
+kubectl describe pod -l app=heart-disease-model -n model-serving
+kubectl logs -l app=heart-disease-model -n model-serving -f
+kubectl get events -n model-serving --sort-by='.lastTimestamp'
+```
+
+### Key things to understand in Phase 3
+
+- Three probes and why each exists — startup probe gives the model time to load (up to 60s) before K8s starts checking. Readiness probe removes the pod from traffic if it becomes unhealthy without restarting it. Liveness probe restarts the pod if it becomes completely unresponsive. Without startup probe, liveness kills the pod before the model finishes loading.
+- maxUnavailable: 0 — the rolling update never terminates an old pod until a new one passes readiness. Zero downtime, guaranteed.
+- minikube image load — minikube runs its own Docker daemon separate from your laptop's. Building an image on your host doesn't make it available inside minikube. This command copies it across.
+- ServiceMonitor namespace — the manifest lives in monitoring not model-serving. This is intentional. The Prometheus Operator watches for ServiceMonitors in its own namespace, then scrapes whatever namespaces the namespaceSelector points to.
+- release: prometheus-stack label — this is the critical wiring between the ServiceMonitor and Prometheus. If this label doesn't match what Helm set on the Prometheus CR, Prometheus silently ignores the ServiceMonitor. In Phase 4 we verify this is correct.
+
+---
+
 ---

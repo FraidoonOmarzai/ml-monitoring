@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heart-disease-model
+  namespace: model-serving
+  labels:
+    app: heart-disease-model
+    app.kubernetes.io/name: heart-disease-model
+    app.kubernetes.io/component: model-serving
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  # Start with 2 replicas — HPA will scale from here
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: heart-disease-model
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # spin up 1 extra pod during rollout
+      maxUnavailable:
+        0 # never take a pod down before a new one is ready
+        # this gives us true zero-downtime deployments
+
+  template:
+    metadata:
+      labels:
+        app: heart-disease-model
+        app.kubernetes.io/name: heart-disease-model
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        # Read by basic Prometheus installs (annotation-based scraping)
+        # In Phase 4 we use ServiceMonitor instead — but keep these here
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      # ── Security context ───────────────────────────────────────────────────
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001 # matches appuser uid in the Dockerfile
+        runAsGroup: 1001
+        fsGroup: 1001
+
+      containers:
+        - name: heart-disease-model
+          image: heart-disease-model:1.0.0
+          # IfNotPresent = use the image already in minikube (loaded via minikube image load)
+          # Change to Always when pulling from a real registry
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: ENABLE_METRICS
+              value: "true"
+            - name: LOG_FORMAT
+              value: "json"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: MODEL_VERSION
+              value: "1.0.0"
+
+          resources:
+            requests:
+              cpu: "100m" # 0.1 vCPU — scheduler uses this to place the pod
+              memory: "256Mi"
+            limits:
+              cpu: "500m" # 0.5 vCPU — hard ceiling
+              memory: "512Mi" # container OOM-killed if exceeded
+
+          # ── Liveness probe ────────────────────────────────────────────────
+          # "Is the process still healthy?"
+          # Fails → K8s restarts the container
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ── Readiness probe ───────────────────────────────────────────────
+          # "Is the container ready to receive traffic?"
+          # Fails → pod removed from Service endpoints (no restart)
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ── Startup probe ─────────────────────────────────────────────────
+          # "Has the container finished starting up?"
+          # Disables liveness + readiness until this passes.
+          # Prevents premature restarts during slow model loading.
+          # 12 attempts × 5s = up to 60s allowed for startup
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+
+      # Give uvicorn time to finish in-flight requests before being killed
+      terminationGracePeriodSeconds: 30

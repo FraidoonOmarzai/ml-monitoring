@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-disease-model
+  namespace: model-serving
+  labels:
+    app: heart-disease-model
+    app.kubernetes.io/name: heart-disease-model
+    app.kubernetes.io/component: model-serving
+spec:
+  # ClusterIP = internal to the cluster only
+  # Use NodePort or LoadBalancer for external access without ingress
+  type: ClusterIP
+
+  selector:
+    app: heart-disease-model
+
+  ports:
+    - name: http
+      port: 80
+      targetPort: http # matches the named port on the container
+      protocol: TCP
