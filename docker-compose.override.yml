@@ -1,0 +1,28 @@
+# Automatically merged with docker-compose.yml on: docker compose up
+# Dev overrides: hot reload, mounted source, readable logs, fast startup
+
+version: "3.9"
+
+services:
+  model:
+    build:
+      context: ./model
+      dockerfile: Dockerfile
+      target: runtime # skip trainer stage — use your local .pkl
+    volumes:
+      - ./model/app:/app/app:ro
+      - ./model/app/model.pkl:/app/app/model.pkl:ro
+      - ./model/app/model_metadata.json:/app/app/model_metadata.json:ro
+    environment:
+      APP_ENV: development
+      LOG_FORMAT: text
+      LOG_LEVEL: DEBUG
+      ENABLE_METRICS: "true"
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 80
+      --reload
+      --log-level debug
+    healthcheck:
+      start_period: 5s

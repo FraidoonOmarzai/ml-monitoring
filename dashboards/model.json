@@ -1,0 +1,387 @@
+{
+    "title": "Heart Disease Model — Production",
+    "uid": "heart-disease-model",
+    "tags": [
+        "ml",
+        "heart-disease"
+    ],
+    "timezone": "browser",
+    "refresh": "15s",
+    "schemaVersion": 38,
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "panels": [
+        {
+            "id": 1,
+            "type": "row",
+            "title": "Service health",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "id": 2,
+            "type": "stat",
+            "title": "Model up",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 0,
+                "y": 1
+            },
+            "datasource": "Prometheus",
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "text": "DOWN",
+                                    "color": "red"
+                                },
+                                "1": {
+                                    "text": "UP",
+                                    "color": "green"
+                                }
+                            }
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 1
+                            }
+                        ]
+                    },
+                    "color": {
+                        "mode": "thresholds"
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                },
+                "colorMode": "background"
+            },
+            "targets": [
+                {
+                    "expr": "up{job=\"heart-disease-model\"}",
+                    "legendFormat": "model"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "type": "stat",
+            "title": "Request rate (req/s)",
+            "gridPos": {
+                "h": 4,
+                "w": 5,
+                "x": 4,
+                "y": 1
+            },
+            "datasource": "Prometheus",
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps"
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum(rate(http_requests_total{handler=\"/predict\"}[5m]))",
+                    "legendFormat": "req/s"
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "type": "stat",
+            "title": "P95 latency",
+            "gridPos": {
+                "h": 4,
+                "w": 5,
+                "x": 9,
+                "y": 1
+            },
+            "datasource": "Prometheus",
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 0.1
+                            },
+                            {
+                                "color": "red",
+                                "value": 0.5
+                            }
+                        ]
+                    },
+                    "color": {
+                        "mode": "thresholds"
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                },
+                "colorMode": "background"
+            },
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{handler=\"/predict\"}[5m])) by (le))",
+                    "legendFormat": "p95"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "type": "stat",
+            "title": "Error rate",
+            "gridPos": {
+                "h": 4,
+                "w": 5,
+                "x": 14,
+                "y": 1
+            },
+            "datasource": "Prometheus",
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percentunit",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 0.01
+                            },
+                            {
+                                "color": "red",
+                                "value": 0.05
+                            }
+                        ]
+                    },
+                    "color": {
+                        "mode": "thresholds"
+                    }
+                }
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                },
+                "colorMode": "background"
+            },
+            "targets": [
+                {
+                    "expr": "sum(rate(http_requests_total{handler=\"/predict\",status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{handler=\"/predict\"}[5m]))",
+                    "legendFormat": "errors"
+                }
+            ]
+        },
+        {
+            "id": 10,
+            "type": "row",
+            "title": "Prediction metrics",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 5
+            }
+        },
+        {
+            "id": 11,
+            "type": "timeseries",
+            "title": "Prediction probability distribution (p50 / p90 / p99)",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 6
+            },
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, sum(rate(heart_disease_prediction_probability_bucket[5m])) by (le))",
+                    "legendFormat": "p50"
+                },
+                {
+                    "expr": "histogram_quantile(0.90, sum(rate(heart_disease_prediction_probability_bucket[5m])) by (le))",
+                    "legendFormat": "p90"
+                },
+                {
+                    "expr": "histogram_quantile(0.99, sum(rate(heart_disease_prediction_probability_bucket[5m])) by (le))",
+                    "legendFormat": "p99"
+                }
+            ]
+        },
+        {
+            "id": 12,
+            "type": "timeseries",
+            "title": "Predicted class ratio (disease vs no-disease)",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 6
+            },
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "sum(rate(heart_disease_prediction_label_total{label=\"1\"}[5m]))",
+                    "legendFormat": "disease (1)"
+                },
+                {
+                    "expr": "sum(rate(heart_disease_prediction_label_total{label=\"0\"}[5m]))",
+                    "legendFormat": "no disease (0)"
+                }
+            ]
+        },
+        {
+            "id": 20,
+            "type": "row",
+            "title": "Feature distributions — input drift detection",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 14
+            }
+        },
+        {
+            "id": 21,
+            "type": "timeseries",
+            "title": "Mean patient age",
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 0,
+                "y": 15
+            },
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(heart_disease_feature_age_years_sum[5m]) / rate(heart_disease_feature_age_years_count[5m])",
+                    "legendFormat": "mean age"
+                }
+            ]
+        },
+        {
+            "id": 22,
+            "type": "timeseries",
+            "title": "Mean cholesterol (mg/dl)",
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 8,
+                "y": 15
+            },
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(heart_disease_feature_chol_mgdl_sum[5m]) / rate(heart_disease_feature_chol_mgdl_count[5m])",
+                    "legendFormat": "mean chol"
+                }
+            ]
+        },
+        {
+            "id": 23,
+            "type": "timeseries",
+            "title": "Mean max heart rate (bpm)",
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 16,
+                "y": 15
+            },
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(heart_disease_feature_thalach_bpm_sum[5m]) / rate(heart_disease_feature_thalach_bpm_count[5m])",
+                    "legendFormat": "mean thalach"
+                }
+            ]
+        },
+        {
+            "id": 30,
+            "type": "row",
+            "title": "Latency breakdown",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 22
+            }
+        },
+        {
+            "id": 31,
+            "type": "timeseries",
+            "title": "Request latency percentiles",
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 23
+            },
+            "datasource": "Prometheus",
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{handler=\"/predict\"}[5m])) by (le))",
+                    "legendFormat": "p50"
+                },
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{handler=\"/predict\"}[5m])) by (le))",
+                    "legendFormat": "p95"
+                },
+                {
+                    "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{handler=\"/predict\"}[5m])) by (le))",
+                    "legendFormat": "p99"
+                }
+            ]
+        }
+    ]
+}

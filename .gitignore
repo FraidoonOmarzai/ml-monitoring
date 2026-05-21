@@ -216,3 +216,40 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Model artifacts
+model/app/model.pkl
+model/app/model_metadata.json
+
+# Env files
+.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+*.tar
+
+# Grafana data
+monitoring/grafana/data/
